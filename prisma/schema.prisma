@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Program{
+  id    Int           @id @default(autoincrement())
+  name  String
+  students Student[]
+  adviser Adviser ?
+  subject Subject[]
+}
+
+model Student{
+  id    Int           @id @default(autoincrement())
+  name  String
+  programId Int 
+  program     Program @relation(fields:[programId], references: [id])
+  remarks     Remark[]
+  }
+
+model Remark{
+  id Int            @id @default(autoincrement()) 
+  studentId Int
+  student Student   @relation(fields: [studentId], references: [id])
+  content String
+  category String   @default("uncategorized")
+  createdAt DateTime @default(now()) 
+}
+
+
+//non-nullable 
+
+
+model Adviser {
+  id        Int      @id @default(autoincrement())
+  name      String
+  programId Int      @unique
+  program   Program  @relation(fields: [programId], references: [id])
+}
+
+model Subject{
+  id Int       @id @default(autoincrement())
+  description String
+  programId Int
+  program  Program  @relation(fields: [programId], references: [id])
+}
