@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -12,45 +7,99 @@ datasource db {
   provider = "mysql"
 }
 
-model Program{
-  id    Int           @id @default(autoincrement())
-  name  String
-  students Student[]
-  adviser Adviser ?
-  subject Subject[]
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
 }
 
-model Student{
-  id    Int           @id @default(autoincrement())
-  name  String
-  programId Int 
-  program     Program @relation(fields:[programId], references: [id])
-  remarks     Remark[]
-  }
-
-model Remark{
-  id Int            @id @default(autoincrement()) 
-  studentId Int
-  student Student   @relation(fields: [studentId], references: [id])
-  content String
-  category String   @default("uncategorized")
-  createdAt DateTime @default(now()) 
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique @db.VarChar(100)
+  slug      String    @unique @db.VarChar(120)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String      @db.VarChar(180)
+  slug        String      @unique @db.VarChar(200)
+  description String      @db.Text
+  sku         String      @unique @db.VarChar(64)
+  price       Decimal     @db.Decimal(10, 2)
+  stock       Int         @default(0)
+  imageUrl    String?     @db.VarChar(2048)
+  isActive    Boolean     @default(true)
+  categoryId  Int
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-//non-nullable 
+  @@index([categoryId, isActive])
+  @@index([name])
+}
 
-
-model Adviser {
+model Customer {
   id        Int      @id @default(autoincrement())
-  name      String
-  programId Int      @unique
-  program   Program  @relation(fields: [programId], references: [id])
+  email     String   @unique @db.VarChar(254)
+  firstName String   @db.VarChar(100)
+  lastName  String   @db.VarChar(100)
+  phone     String?  @db.VarChar(32)
+  cart      Cart?
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model Subject{
-  id Int       @id @default(autoincrement())
-  description String
-  programId Int
-  program  Program  @relation(fields: [programId], references: [id])
+model Cart {
+  id         Int        @id @default(autoincrement())
+  customerId Int        @unique
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items      CartItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  cartId    Int
+  productId Int
+  quantity  Int     @default(1)
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  customerId      Int
+  status          OrderStatus @default(PENDING)
+  total           Decimal     @db.Decimal(10, 2)
+  shippingAddress String      @db.VarChar(500)
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([customerId, createdAt])
+}
+
+model OrderItem {
+  id          Int     @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  productName String  @db.VarChar(180)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  quantity    Int
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([productId])
 }
