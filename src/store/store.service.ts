@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { OrderStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -98,12 +99,12 @@ export class StoreService {
       });
       if (!cart?.items.length) throw new BadRequestException('Cart is empty');
 
-      let total = 0;
+      let total = new Prisma.Decimal(0);
       for (const item of cart.items) {
-        if (!item.product.isActive || item.product.stock < item.quantity) {
-          throw new BadRequestException(`${item.product.name} is unavailable in the requested quantity`);
+        if (!item.product.isActive) {
+          throw new BadRequestException(`${item.product.name} is no longer available`);
         }
-        total += Number(item.product.price) * item.quantity;
+        total = total.plus(item.product.price.mul(item.quantity));
       }
 
       for (const item of cart.items) {
@@ -112,14 +113,16 @@ export class StoreService {
           data: { stock: { decrement: item.quantity } },
         });
         if (!stockUpdate.count) {
-          throw new BadRequestException(`${item.product.name} is out of stock`);
+          throw new BadRequestException(
+            `Insufficient stock for ${item.product.name}`,
+          );
         }
       }
 
       const order = await tx.order.create({
         data: {
           customerId,
-          total: total.toFixed(2),
+          total,
           shippingAddress: data.shippingAddress,
           items: {
             create: cart.items.map((item) => ({
